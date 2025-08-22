@@ -12,5 +12,9 @@ public class App {
 
         System.out.println("=== Aggregated News ===");
         allArticles.forEach(article -> System.out.println(article));
+        
+        System.out.println("=== Filtered ===");
+        List<Article> filtered = ArticleFilter.filterByKeyword(allArticles, "breaking");
+        filtered.forEach(System.out::println);
     }
 }

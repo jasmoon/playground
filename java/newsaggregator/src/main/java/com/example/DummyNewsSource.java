@@ -14,8 +14,19 @@ public class DummyNewsSource implements NewsSource {
     @Override
     public List<Article> fetchArticles() {
         List<Article> articles = new ArrayList<>();
-        articles.add(new Article("Breaking News 1", sourceName, LocalDateTime.now(), "Politics"));
-        articles.add(new Article("Tech Update", sourceName, LocalDateTime.now().minusHours(1), "Technology"));
+        articles.add(new Article(
+            "Breaking News 1",
+            sourceName,
+            "headlines for today",
+            LocalDateTime.now(),
+            "Politics")
+        );
+        articles.add(new Article(
+            "Tech Update",
+            sourceName,
+            "tech headlines",
+            LocalDateTime.now().minusHours(1),
+            "Technology"));
         return articles;
     }
 }

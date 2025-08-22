@@ -1,0 +1,23 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "type": "java",
+            "name": "App",
+            "request": "launch",
+            "mainClass": "com.example.App",
+            "projectName": "newsaggregator"
+        },
+        {
+            "type": "java",
+            "name": "TicketmasterApplication",
+            "request": "launch",
+            "mainClass": "com.example.ticketmaster.TicketmasterApplication",
+            "projectName": "ticketmaster",
+            "cwd": "./java/ticketmaster"
+        }
+    ]
+}
