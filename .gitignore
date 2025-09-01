@@ -24,3 +24,6 @@ yarn-error.log*
 
 # java
 target
+
+# python
+__pycache__
