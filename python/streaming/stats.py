@@ -70,7 +70,8 @@ kth = KthLargest(3, [4, 5, 8, 2])
 print(kth.add(3))  # 4
 print(kth.add(10)) # 5
 
-
+########################
+# For samplers, the intuition here is to decide whether to store the new element using probability with respect to population size.
 
 
 class ReservoirSampler:
