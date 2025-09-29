@@ -1,67 +1,3 @@
-
-
-
-
-
-
-
-
-
-
-
-
-from typing import Any
-
-
-# def determineWaterHeightsSlow(heights: list[int], rainFallAmount: int) -> list[int]: # O(rain * len(heights))
-#     n = len(heights)
-#     if n == 0 or rainFallAmount <= 0:
-#         return [0] * n
-
-#     # peak = first index of global maximum
-#     peakIdx = heights.index(max(heights))
-#     water = [0] * n
-
-#     # split rain: left gets floor(rain/2), right gets remainder (odd -> right)
-#     if peakIdx == 0:
-#         leftRain = 0
-#         rightRain = rainFallAmount
-#     elif peakIdx == n - 1:
-#         leftRain = rainFallAmount
-#         rightRain = 0
-#     else:
-#         leftRain = rainFallAmount // 2
-#         rightRain = rainFallAmount - leftRain
-
-#     def pour_side(start_idx: int, direction: int, amount: int) -> None: 
-#         """
-#         Pour `amount` units starting from start_idx, moving in `direction`.
-#         Each unit walks outward while the next cell's (height + water) <= current.
-#         On ties it prefers the outward cell (so it goes as far as possible).
-#         """
-#         for _ in range(amount):
-#             pos = start_idx
-#             if pos < 0 or pos >= n:
-#                 break
-#             # walk outward to the farthest cell reachable without climbing
-#             while True:
-#                 nxt = pos + direction
-#                 if not (0 <= nxt < n):
-#                     break
-#                 if heights[nxt] + water[nxt] <= heights[pos] + water[pos]:
-#                     pos = nxt
-#                 else:
-#                     break
-#             water[pos] += 1
-
-#     # pour left and right
-#     if peakIdx > 0:
-#         pour_side(peakIdx - 1, -1, leftRain)
-#     if peakIdx < n - 1:
-#         pour_side(peakIdx + 1, 1, rightRain)
-
-#     return water
-
 def determineWaterHeightsSlow(heights: list[int], rainFallAmount: int) -> list[int]: # O(rain * len(heights))
     n = len(heights)
     water = [0] * n
@@ -218,4 +154,3 @@ def test_simple():
 
 if __name__ == "__main__":
     test_simple()
-
