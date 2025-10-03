@@ -83,15 +83,17 @@ def partition_k_equal_sum_subsets(
 
     return dp(0, 0)
 
-
-if __name__ == "__main__":
-    print(subsets_backtrack([1, 2, 3]))
-    print(subsets_bitmask([1, 2, 3]))
-    print(
-        max_compatibility_score_bitmask(
+def test_simple():
+    expected = [[], [1], [1, 2], [1, 2, 3], [1, 3], [2], [2, 3], [3]]
+    assert expected == sorted(subsets_backtrack([1, 2, 3]))
+    assert expected == sorted(subsets_bitmask([1, 2, 3]))
+    assert max_compatibility_score_bitmask(
             students=[[1, 0, 1], [1, 1, 0],  [0, 0, 1]],
             mentors=[[0, 0, 1], [1, 0, 0], [1, 1, 0]],
-        )
-    )
-    print(partition_k_equal_sum_subsets([4,3,2,3,5,2,1],4))
-    print(partition_k_equal_sum_subsets([1,2,3,4],3))
+        ) == 8
+    assert partition_k_equal_sum_subsets([4,3,2,3,5,2,1],4)
+    assert not partition_k_equal_sum_subsets([1,2,3,4],3)
+
+if __name__ == "__main__":
+    test_simple()
+    
