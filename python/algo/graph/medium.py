@@ -101,8 +101,8 @@ def mst_kruskal(edges: list[tuple[int, int, int]], n: int) -> tuple[list[tuple[i
             total += weight
             mst.append((u, v, weight))
 
-            if len(mst) == n-1:
-                break
+        if len(mst) == n-1:
+            break
     return mst, total
 
 def test_simple():
@@ -145,9 +145,28 @@ def test_simple():
                 (2, 3, 4),
             ],
             4,
-            [(0,1,10), (0,3,5), (3,2,4)],
-            [(0,1,10), (0,3,5), (2,3,4)],
+            [(0, 1, 10), (0, 3, 5), (3, 2, 4)],
+            [(0, 1 ,10), (0, 3, 5), (2, 3, 4)],
             19
+        ),
+        (
+            [
+                (0, 1, 1),
+                (0, 2, 2),
+                (0, 3, 3),
+                (1, 2, 4),
+                (1, 3, 5),
+                (2, 3, 6),
+                # tons of extra heavy edges
+                (0, 1, 1000),
+                (2, 3, 2000),
+                (1, 2, 3000),
+                (0, 3, 4000)
+            ],
+            4,
+            [(0, 1, 1), (0, 2, 2), (0, 3, 3)],
+            [(0, 1, 1), (0, 2, 2), (0, 3, 3)],
+            6
         ),
     ]
 
