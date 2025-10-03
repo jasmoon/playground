@@ -81,7 +81,7 @@ class UnionFind:
             self.rank[px] += 1
         return False
 
-
+# Question
 # Given an undirected graph as adjacency list, check if it contains a cycle.
 def detect_cycle_undirected_graph(edges: list[list[int]], n: int):
     ufds = UnionFind(n)
