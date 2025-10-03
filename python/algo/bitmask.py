@@ -1,6 +1,7 @@
 from functools import lru_cache
 
-
+# Question
+# You are given an array of integers nums where each element is unique. Return all possible subsets (the power set) of nums.
 def subsets_backtrack(nums: list[int]) -> list[list[int]]:
     n = len(nums)
     ans: list[list[int]] = []
@@ -29,7 +30,12 @@ def subsets_bitmask(nums: list[int]) -> list[list[int]]:
         ans.append(subset)
     return ans
 
-
+# Question
+# You are given:
+# - m students and m mentors (same number of each).
+# - Each student and mentor has answered n binary questions (answers are 0 or 1).
+# The compatibility score between a student and a mentor is the number of answers they have in common.
+# You need to assign each student to exactly one mentor (one-to-one matching) such that the sum of compatibility scores is maximized.
 def max_compatibility_score_bitmask(
     students: list[list[int]], mentors: list[list[int]]
 ) -> int:
@@ -52,6 +58,8 @@ def max_compatibility_score_bitmask(
 
     return dp(0, 0)
 
+# Question
+# You are given an integer array nums and an integer k. Return true if it is possible to divide the array into k subsets with equal sum.
 def partition_k_equal_sum_subsets(
     nums: list[int], k: int
 ):
