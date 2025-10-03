@@ -69,7 +69,7 @@ class UnionFind:
     def union(self, x: int, y: int):
         px, py = self.find(x), self.find(y)
         if px == py:
-            return True # cycle detected
+            return False # cycle detected
 
         if self.rank[px] < self.rank[py]:
             self.parent[px] = py
@@ -79,14 +79,14 @@ class UnionFind:
             # promote px to parent of py
             self.parent[py] = px
             self.rank[px] += 1
-        return False
+        return True
 
 # Question
 # Given an undirected graph as adjacency list, check if it contains a cycle.
 def detect_cycle_undirected_graph(edges: list[list[int]], n: int):
     ufds = UnionFind(n)
     for u, v in edges:
-        if ufds.union(u, v):
+        if not ufds.union(u, v):
             return True
     return False
 
