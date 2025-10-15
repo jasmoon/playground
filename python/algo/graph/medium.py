@@ -7,6 +7,9 @@ import heapq
 # Shortest Path in Binary Matrix
 # Given an n x n binary matrix, return the shortest path from top-left to bottom-right, moving in 8 directions.
 def shortest_path(grid: list[list[int]])-> int:
+    """
+    runtime: O(m * n)
+    """
     rows, cols = len(grid), len(grid[0])
     queue = deque([(0, 0)])
     moves = [(0, 1), (0, -1), (1, 0), (-1, 0), (1, 1), (1, -1), (-1, -1), (-1, 1)]
@@ -34,6 +37,9 @@ def shortest_path(grid: list[list[int]])-> int:
 # Question
 # Given the weighted edges and the number of nodes in a graph, return the mst and weight of the mst
 def mst_prim(edges: list[tuple[int, int, int]], n: int) -> tuple[None, None] | tuple[list[tuple[int, int, int]], int]:
+    """
+    runtime: O((V + E) log n)
+    """
     graph: defaultdict[int, list[tuple[int, int]]] = defaultdict(list)
     for u, v, cost in edges:
         graph[u].append((v, cost))
@@ -91,6 +97,9 @@ class UnionFind:
         return True
 
 def mst_kruskal(edges: list[tuple[int, int, int]], n: int) -> tuple[list[tuple[int, int, int]], int]:
+    """
+    runtime: O(E log E)
+    """
     edges.sort(key=lambda edge: edge[2])
     ufds = UnionFind(n)
     total = 0

@@ -2,6 +2,9 @@
 # Given a 2D grid of 1s (land) and 0s (water), count the number of islands.
 # (Tests: DFS/BFS traversal, visited set)
 def islands(grid: list[list[str]]):
+    """
+    runtime: O(m * n)
+    """
     seen: set[tuple[int, int]] = set()
     rows = len(grid)
     cols = len(grid[0])
@@ -27,13 +30,17 @@ def islands(grid: list[list[str]]):
                 ans += 1
                 dfs(row, col)
     return ans
-                
+      
 
 from collections import deque
 # Flood Fill
 # Given an image matrix and a starting pixel, change its color and spread to connected neighbors.
 # (Tests: Graph traversal in grids)
+# runtime: O(m * n)
 def flood_fill(grid: list[list[int]], source: tuple[int, int], new_color: int) -> list[list[int]]:
+    """
+    runtime: O(m * n)
+    """
     queue = deque([source])
     rows = len(grid)
     cols = len(grid[0])
@@ -84,11 +91,29 @@ class UnionFind:
 # Question
 # Given an undirected graph as adjacency list, check if it contains a cycle.
 def detect_cycle_undirected_graph(edges: list[list[int]], n: int):
+    """
+    runtime: O(E)
+    """
     ufds = UnionFind(n)
     for u, v in edges:
         if not ufds.union(u, v):
             return True
     return False
+
+# Count Number of Connected Components
+# You are given an integer n which represents the number of nodes in an undirected graph (labeled from 0 to n - 1),
+# and a list of edges, where each edge is a pair [u, v] representing a connection between u and v.
+
+# Return the number of connected components in the graph.
+def num_connected_components(n: int, edges: list[list[int]]) -> int:
+    ufds = UnionFind(n)
+    ans = 1
+    for u, v in edges:
+        ufds.union(u, v)
+    
+    roots = {ufds.find(i) for i in range(n)}
+    assert len(roots) == len(set(ufds.parent))
+    return len(set(ufds.parent))
 
 def test_simple():
     island_tcs = [
@@ -149,6 +174,28 @@ def test_simple():
         print(output)
         assert expected == output
 
+    num_connected_components_tcs = [
+        (
+            5,
+            [[0, 1], [1, 2], [3, 4]],
+            2
+        ),
+        (
+            5,
+            [[0, 1], [1, 2], [2, 3], [3, 4]],
+            1
+        ),
+        (
+            4,
+            [[0, 1], [1, 2]],
+            2
+        )
+    ]
+
+    for n, edges, expected in num_connected_components_tcs:
+        output = num_connected_components(n, edges)
+        assert expected == output
+        
 
 if __name__ == "__main__":
     test_simple()

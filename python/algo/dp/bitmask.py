@@ -1,5 +1,6 @@
 from functools import lru_cache
 
+
 # Question
 # You are given an array of integers nums where each element is unique. Return all possible subsets (the power set) of nums.
 def subsets_backtrack(nums: list[int]) -> list[list[int]]:
@@ -30,6 +31,7 @@ def subsets_bitmask(nums: list[int]) -> list[list[int]]:
         ans.append(subset)
     return ans
 
+
 # Question
 # You are given:
 # - m students and m mentors (same number of each).
@@ -40,8 +42,11 @@ def max_compatibility_score_bitmask(
     students: list[list[int]], mentors: list[list[int]]
 ) -> int:
     m, n = len(students), len(students[0])
-    scores = [[sum(students[s][k] == mentors[t][k] for k in range(n))
-            for t in range(m)] for s in range(m)]
+    scores = [
+        [sum(students[s][k] == mentors[t][k] for k in range(n)) for t in range(m)]
+        for s in range(m)
+    ]
+    print(scores)
 
     @lru_cache(None)
     def dp(student_idx: int, mask: int) -> int:
@@ -51,18 +56,17 @@ def max_compatibility_score_bitmask(
         highest = 0
         for i in range(m):
             if not mask & (1 << i):
-                highest = max(highest,
-                    scores[student_idx][i] +
-                    dp(student_idx+1, mask | 1 << i))
+                highest = max(
+                    highest, scores[student_idx][i] + dp(student_idx + 1, mask | 1 << i)
+                )
         return highest
 
     return dp(0, 0)
 
+
 # Question
 # You are given an integer array nums and an integer k. Return true if it is possible to divide the array into k subsets with equal sum.
-def partition_k_equal_sum_subsets(
-    nums: list[int], k: int
-):
+def partition_k_equal_sum_subsets(nums: list[int], k: int):
     target = sum(nums) // k
     n = len(nums)
     nums.sort(reverse=True)
@@ -73,7 +77,7 @@ def partition_k_equal_sum_subsets(
             return curr_sum == 0
 
         for i in range(n):
-            if not (mask & (1 << i)): # not used
+            if not (mask & (1 << i)):  # not used
                 next_sum = curr_sum + nums[i]
                 if next_sum <= target:
                     next_mask = mask | (1 << i)
@@ -83,17 +87,23 @@ def partition_k_equal_sum_subsets(
 
     return dp(0, 0)
 
+
 def test_simple():
     expected = [[], [1], [1, 2], [1, 2, 3], [1, 3], [2], [2, 3], [3]]
     assert expected == sorted(subsets_backtrack([1, 2, 3]))
     assert expected == sorted(subsets_bitmask([1, 2, 3]))
-    assert max_compatibility_score_bitmask(
-            students=[[1, 0, 1], [1, 1, 0],  [0, 0, 1]],
+    assert (
+        max_compatibility_score_bitmask(
+            students=[[1, 0, 1], [1, 1, 0], [0, 0, 1]],
             mentors=[[0, 0, 1], [1, 0, 0], [1, 1, 0]],
-        ) == 8
-    assert partition_k_equal_sum_subsets([4,3,2,3,5,2,1],4)
-    assert not partition_k_equal_sum_subsets([1,2,3,4],3)
+        )
+        == 8
+    )
+    assert partition_k_equal_sum_subsets(
+        [4, 3, 2, 3, 5, 2, 1], 4
+    )  # [5], [1,4], [2,3], [2,3]
+    assert not partition_k_equal_sum_subsets([1, 2, 3, 4], 3)
+
 
 if __name__ == "__main__":
     test_simple()
-    
