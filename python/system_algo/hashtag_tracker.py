@@ -1,5 +1,6 @@
 from bisect import bisect_right
 from collections import defaultdict
+from typing import Any
 from heapdict import heapdict
 from threading import Lock
 import heapq
@@ -83,13 +84,17 @@ class RollingCMS:
 
         start_index = min(self.buckets.keys())
         cutoff_index = self._get_bucket_index(cutoff_time)
+        to_subtract: list[CountMinSketch] = []
         for expired_index in range(start_index, cutoff_index): # exclude cutoff_index
             with self._get_bucket_lock(expired_index):
                 expired_cms = self.buckets[expired_index]
+                to_subtract.append(expired_cms)
                 del self.buckets[expired_index]
-
+        
+        if to_subtract:
             with self.global_lock:
-                self.merged.subtract(expired_cms)
+                for cms in to_subtract:
+                    self.merged.subtract(cms)
                 
     def _get_now_bucket(self, now_bucket_index: int) -> CountMinSketch:
         with self.global_lock:
@@ -118,7 +123,7 @@ class RollingCMS:
             for bucket_index in range(cutoff_index, latest_index+1):
                 with self._get_bucket_lock(bucket_index):
                     if bucket_index in self.buckets:
-                        approx_counts[key] += int(self.buckets[bucket_index].estimate(key))
+                        approx_counts[key] += self.buckets[bucket_index].estimate(key)
         return approx_counts
         
 class TrendingTracker:
@@ -227,8 +232,8 @@ class TrendingTracker:
             return len(timestamps) - idx # exclude idx
 
     def get_top_k_global_fast(self) -> list[tuple[str, int]]:
-        return sorted(list(self.top_k_global_heap.items()), key=lambda hashtag_count: -hashtag_count[1])
-
+        with self.global_lock:
+            return sorted(self.top_k_global_heap.items(), key=lambda hashtag_count: -hashtag_count[1])
 
     def get_top_k_trending_slow(self, k: int, t: int) -> list[tuple[str, int]]:
         """
@@ -246,7 +251,7 @@ class TrendingTracker:
             return []
 
         for hashtag in list(self.hashtag_timestamps.keys()):
-            counts[hashtag] += int(self._count_timestamps_in_window(hashtag, cutoff_time))
+            counts[hashtag] += self._count_timestamps_in_window(hashtag, cutoff_time)
 
         return heapq.nlargest(k, counts.items(), key=lambda hashtag_count: hashtag_count[1])
 
