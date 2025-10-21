@@ -86,9 +86,11 @@ class RollingCMS:
         for expired_index in range(start_index, cutoff_index): # exclude cutoff_index
             with self._get_bucket_lock(expired_index):
                 expired_cms = self.buckets[expired_index]
-                self.merged.subtract(expired_cms)
                 del self.buckets[expired_index]
-        
+
+            with self.global_lock:
+                self.merged.subtract(expired_cms)
+                
     def _get_now_bucket(self, now_bucket_index: int) -> CountMinSketch:
         with self.global_lock:
             if now_bucket_index not in self.buckets:
