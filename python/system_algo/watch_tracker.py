@@ -19,6 +19,7 @@ import heapq
 # * The system should handle high write throughput (many record_watch events per second).
 # * All timestamps are given as seconds since epoch.
 
+# The solution below makes use of BUCKETS to answer queries in a faster manner.
 
 @dataclass
 class VideoWatchEvent:
