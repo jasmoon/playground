@@ -7,7 +7,7 @@ This section covers the different levels of practices for leetcode style system 
 |--|--|--|
 |1|New to this type of questions|`basic` folder
 |2|Bloom Filter, Rate Limiting, Window Deduplication|`intermediate` folder
-|3|Streaming, Bucketing|watch_tracker.py
+|3|Rolling Window, Rolling Buckets|watch_tracker.py
 |4|- Count Min Sketch (CMS) <br> - Rolling CMS <br> - Maintaining Global Top K <br> - Resource Contention <br> |hashtag_tracker.py
 
 ## Recommended Practices
