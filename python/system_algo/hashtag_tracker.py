@@ -83,13 +83,10 @@ class RollingCMS:
         if not self.buckets:
             return
 
-        with self.global_lock:
-            keys = list(self.buckets.keys())
-
         cutoff_index = self._get_bucket_index(cutoff_time)
         expired_indexes = [
             index
-            for index in keys
+            for index in list(self.buckets.keys())
             if index < cutoff_index # exclude cutoff_index
         ]
         to_subtract: list[CountMinSketch] = []
@@ -107,6 +104,7 @@ class RollingCMS:
     def _get_bucket(self, bucket_index: int) -> CountMinSketch:
         """
         acquire lock before using this func, or can change to use RLock
+        whoever acquires the lock, can create the new bucket index belonging to that lock
         """
         if bucket_index not in self.buckets:
             new_cms = CountMinSketch(self.width, self.depth)
@@ -115,8 +113,7 @@ class RollingCMS:
 
     def add(self, key: str, timestamp: int, count:int=1) -> int:
         bucket_index = self._get_bucket_index(timestamp)
-        lock  = self._get_bucket_lock(bucket_index)
-        with lock:
+        with self._get_bucket_lock(bucket_index):
             bucket = self._get_bucket(bucket_index)
             bucket.add(key, count)
         with self.global_lock:
@@ -218,7 +215,7 @@ class TrendingTracker:
         """
 
         self.current_time = max(self.current_time, timestamp)
-        with self._get_hashtag_lock(hashtag): # need global lock? there's conflict with `_cleanup_old_data`
+        with self._get_hashtag_lock(hashtag):
             self.hashtag_timestamps[hashtag].append(timestamp)
 
         # record in rolling cms
