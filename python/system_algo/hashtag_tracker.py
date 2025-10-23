@@ -1,5 +1,6 @@
 from bisect import bisect_right
 from collections import defaultdict
+from operator import index
 from typing import Any
 from heapdict import heapdict
 from threading import Lock
@@ -82,10 +83,17 @@ class RollingCMS:
         if not self.buckets:
             return
 
-        start_index = min(self.buckets.keys())
+        with self.global_lock:
+            keys = list(self.buckets.keys())
+
         cutoff_index = self._get_bucket_index(cutoff_time)
+        expired_indexes = [
+            index
+            for index in keys
+            if index < cutoff_index # exclude cutoff_index
+        ]
         to_subtract: list[CountMinSketch] = []
-        for expired_index in range(start_index, cutoff_index): # exclude cutoff_index
+        for expired_index in expired_indexes: # exclude cutoff_index
             with self._get_bucket_lock(expired_index):
                 expired_cms = self.buckets[expired_index]
                 to_subtract.append(expired_cms)
@@ -96,18 +104,20 @@ class RollingCMS:
                 for cms in to_subtract:
                     self.merged.subtract(cms)
                 
-    def _get_now_bucket(self, now_bucket_index: int) -> CountMinSketch:
-        with self.global_lock:
-            if now_bucket_index not in self.buckets:
-                new_cms = CountMinSketch(self.width, self.depth)
-                self.buckets[now_bucket_index] = new_cms
-        return self.buckets[now_bucket_index]
+    def _get_bucket(self, bucket_index: int) -> CountMinSketch:
+        """
+        acquire lock before using this func, or can change to use RLock
+        """
+        if bucket_index not in self.buckets:
+            new_cms = CountMinSketch(self.width, self.depth)
+            self.buckets[bucket_index] = new_cms
+        return self.buckets[bucket_index]
 
     def add(self, key: str, timestamp: int, count:int=1) -> int:
         bucket_index = self._get_bucket_index(timestamp)
         lock  = self._get_bucket_lock(bucket_index)
         with lock:
-            bucket = self._get_now_bucket(bucket_index)
+            bucket = self._get_bucket(bucket_index)
             bucket.add(key, count)
         with self.global_lock:
             return self.merged.add(key, count)
@@ -158,6 +168,7 @@ class TrendingTracker:
         return self.lock_stripes[stripe_idx]
         
     def _cleanup_old_data(self, cutoff_time: int) -> None:
+        cutoff_time = max(0, cutoff_time)
         if not self.global_lock.acquire(blocking=False): # only 1 thread does cleanup
             return
         
@@ -165,6 +176,7 @@ class TrendingTracker:
             if not self.hashtag_timestamps:
                 return
 
+            cutoff_time = max(0, cutoff_time)
             for hashtag in list(self.hashtag_timestamps.keys()):
                 lock: Lock = self._get_hashtag_lock(hashtag)
                 with lock:
@@ -206,7 +218,7 @@ class TrendingTracker:
         """
 
         self.current_time = max(self.current_time, timestamp)
-        with self._get_hashtag_lock(hashtag):
+        with self._get_hashtag_lock(hashtag): # need global lock? there's conflict with `_cleanup_old_data`
             self.hashtag_timestamps[hashtag].append(timestamp)
 
         # record in rolling cms
