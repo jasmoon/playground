@@ -70,4 +70,3 @@ ss.discard(("b", 100))              # O(log n)
 print(ss)                                 # SortedSet([('a', 1), ('d', 5), ('d', 10)])
 
 print([v for v in ss.irange(("c", 100), ("e", 1000), inclusive=(True, False))]) # [('d', 5), ('d', 10)]
-
