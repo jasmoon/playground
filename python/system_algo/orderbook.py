@@ -39,10 +39,7 @@
 # - Memory usage must remain bounded.
 # - Approximation is acceptable for total quantity and top-K queries if necessary.
 
-from typing import Any
-
-
-from collections import defaultdict, deque
+from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
 from heapdict import heapdict
@@ -139,13 +136,13 @@ class RingBuffer:
     def sum_last_t_seconds(self, t: int, current_time: int):
         cutoff_time = current_time - t
         total = 0
-        for bucket in list(self.buckets):
+        for bucket in self.buckets:
             total += bucket.get_quantity_if_valid(cutoff_time)
         return total
 
     def total(self):
         total = 0
-        for bucket in list(self.buckets):
+        for bucket in self.buckets:
             _, quantity = bucket.read()
             if quantity > 0:
                 total += quantity
@@ -210,14 +207,14 @@ class OrderBook:
             quantity, timestamp
         )
 
+        with self.global_lock:
+            self.current_time = max(self.current_time, timestamp)
+
         with self._get_order_lock(order_id):
             self.storage[order_id] = order
 
         with self._get_bucket_lock(rounded_price):
             count = self.price_buckets[rounded_price].add(timestamp, quantity)
-
-        with self.global_lock:
-            self.current_time = max(self.current_time, timestamp)
 
         self._update_global_heap(rounded_price, count)
 
@@ -227,7 +224,7 @@ class OrderBook:
 
         with self._get_order_lock(order_id):
             order = self.storage[order_id]
-            if timestamp < order.timestamp:
+            if timestamp < order.timestamp: 
                 return
 
             old_quantity = order.quantity
@@ -294,7 +291,8 @@ class OrderBook:
             for ring_buffer in ring_buffers
         )
 
-
+    def format_price(self, price: Decimal):
+        return str(price.quantize(Decimal("0.00")))
 
     def get_top_k_prices(self, k: int) -> list[tuple[str, int]]:
         """
@@ -302,11 +300,12 @@ class OrderBook:
         """
         k = min(self.K, k)
         return sorted([
-            (str(rounded_price.quantize(Decimal("0.00"))), count)
+            (self.format_price(rounded_price), count)
             for rounded_price, count in list(self.global_heap.items())
             ],
             key=lambda price_cnt: -price_cnt[1]
         )[:k]
+
 
     def get_average_price(self, now: int, t: int):
         total_quantity = total_value = 0
@@ -317,8 +316,8 @@ class OrderBook:
 
         res = Decimal("0.0")
         if total_quantity > 0:
-            res = Decimal(str(total_value / total_quantity)).quantize(Decimal("1.00"))
-        return res
+            res = Decimal(str(total_value / total_quantity))
+        return self.format_price(res)
 
 def test_simple():
     book = OrderBook("0.01")
@@ -354,7 +353,7 @@ def test_rolling_window():
     
     # At time 70, first order should be expired
     assert book.get_total_quantity_last_t_seconds(70, 60) == 50  # o2 + o3
-    assert book.get_average_price(70, 60) == Decimal("100.0")
+    assert book.get_average_price(70, 60) == "100.00"
 
     book.update_order("o1", 100.0, 100, 80) # update outside window
     assert book.get_total_quantity_last_t_seconds(80, 60) == 150  # o1 + o2 + o3
@@ -362,7 +361,7 @@ def test_rolling_window():
         [(0, 0), (70, 30), (80, 100), (30, 20), (0, 0), (0, 0)] ==
         [bucket.read() for bucket in book.price_buckets[Decimal("100.00")].buckets]
     )
-    assert book.get_average_price(70, 60) == Decimal("100.00")
+    assert book.get_average_price(70, 60) == "100.00"
 
     
     print("✓ Rolling window tests passed")
