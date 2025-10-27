@@ -39,9 +39,6 @@
 # - Memory usage must remain bounded.
 # - Approximation is acceptable for total quantity and top-K queries if necessary.
 
-from typing import Any
-
-
 from collections import defaultdict
 from dataclasses import dataclass
 from decimal import Decimal
@@ -56,14 +53,17 @@ class Order:
     rounded_price: Decimal
     quantity: int
     timestamp: int
+    cancelled: bool
 
 class OrderBook:
     def __init__(self,
         default_tick_size: str,
+        bucket_size: int=60 * 10, # 10 minutes in seconds
         num_stripes: int=128,
         K: int=5,
         ) -> None:
-        self.ledger = SortedDict(list) # price -> (timestamp, order_id)
+        self.buckets = defaultdict(lambda: defaultdict(int)) # price -> time bucket -> quantity
+        self.bucket_size = bucket_size
         self.storage: dict[str, Order] = {}   # order_id -> order
         self.default_tick_size = default_tick_size
 
@@ -72,18 +72,20 @@ class OrderBook:
 
         self.global_lock = Lock()
         self.num_stripes = num_stripes
-        self.price_locks = [Lock() for _ in range(num_stripes)]
+        self.lock_stripes = [Lock() for _ in range(num_stripes)]
         self.order_locks = [Lock() for _ in range(num_stripes)]
-
 
     def _round_price(self, price: float):
         d_price = Decimal(str(price))
         d_tick = Decimal(self.default_tick_size) 
-        return (d_price // d_tick) * d_tick
+        return (d_price / d_tick).to_integral_value(rounding="ROUND_HALF_UP") * d_tick
 
-    def _get_rounded_price_lock(self, price: Decimal):
-        lock_index = hash(price) % self.num_stripes
-        return self.price_locks[lock_index]
+    def _get_time_bucket_index(self, timestamp: int):
+        return timestamp // self.bucket_size
+
+    def _get_bucket_lock(self, rounded_price: Decimal):
+        lock_index = hash(rounded_price) % self.num_stripes
+        return self.lock_stripes[lock_index]
     
     def _get_order_lock(self, order_id: str):
         lock_index = hash(order_id) % self.num_stripes
@@ -97,22 +99,23 @@ class OrderBook:
             ):
                 self.global_heap[rounded_price] = count
             else:
-                _, lowest_count = self.global_heap.peekitem()
+                price_with_lowest_count, lowest_count = self.global_heap.peekitem()
                 if count > lowest_count:
-                    self.global_heap.popitem()
+                    self.global_heap.pop(price_with_lowest_count)
                     self.global_heap[rounded_price] = count
 
     def record_order(self, order_id: str, price: float, quantity: int, timestamp: int):
         rounded_price = self._round_price(price)
         order = Order(
             order_id, price, rounded_price,
-            quantity, timestamp
+            quantity, timestamp, False
         )
 
-        with self._get_rounded_price_lock(rounded_price):
-            self.ledger[rounded_price].append((timestamp, order_id))
+        time_bucket_index = self._get_time_bucket_index(timestamp)
+        with self._get_bucket_lock(rounded_price):
+            self.buckets[rounded_price][time_bucket_index] += quantity
             self.storage[order_id] = order
-            count = len(self.ledger[rounded_price])
+            count = self.buckets[rounded_price][time_bucket_index]
 
         self._update_global_heap(rounded_price, count)
 
@@ -125,29 +128,108 @@ class OrderBook:
             if timestamp <= order.timestamp:
                 return
 
-        new_rounded_price = self._round_price(new_price)
-        if order.rounded_price == new_rounded_price:
-            pass
+            old_quantity = order.quantity
+            old_rounded_price = order.rounded_price
+            old_time_bucket_index = self._get_time_bucket_index(order.timestamp)
 
-        order.price = new_price
-        order.quantity = new_quantity
+            order.price = new_price
+            order.rounded_price = self._round_price(new_price)
+            order.quantity = new_quantity
+            order.timestamp = timestamp
+                
+        with self._get_bucket_lock(old_rounded_price):
+            self.buckets[old_rounded_price][old_time_bucket_index] -= old_quantity
+            count = self.buckets[old_rounded_price][old_time_bucket_index]
+            self._update_global_heap(old_rounded_price, count)
 
-
+        new_time_bucket_index = self._get_time_bucket_index(timestamp)
+        with self._get_bucket_lock(order.rounded_price):
+            self.buckets[order.rounded_price][new_time_bucket_index] += new_quantity
+            count = self.buckets[order.rounded_price][new_time_bucket_index]
+            self._update_global_heap(order.rounded_price, count)
 
     
-    def cancel_order(order_id: str, timestamp: int):
-        pass
+    def cancel_order(self, order_id: str, timestamp: int):
+        if order_id not in self.storage:
+            return
 
-    def get_total_quantity(price: float) -> int:
+        with self._get_order_lock(order_id):
+            order = self.storage[order_id]
+            if timestamp <= order.timestamp:
+                return
+            time_bucket_index = self._get_time_bucket_index(order.timestamp)
+            rounded_price = order.rounded_price
+            quantity = order.quantity
+            order.cancelled = True
+
+        with self._get_bucket_lock(rounded_price):
+            self.buckets[rounded_price][time_bucket_index] -= quantity
+            count = self.buckets[rounded_price][time_bucket_index]
+            self._update_global_heap(rounded_price, count)
+
+    def get_total_quantity(self, price: float) -> int:
         """
         Return total quantity at the exact price level.
         """
+        rounded_price = self._round_price(price)
+        quantities = list(self.buckets[rounded_price].values())
+        return sum(quantity for quantity in quantities)
 
-    def get_total_quantity_in_range(low: float, high: float) -> int:
-        pass
+    def get_total_quantity_in_range(self, low: float, high: float) -> int:
+        """
+        Return total quantity for all orders in the price range [low, high].
+        """
+        low_rounded_price = self._round_price(low)
+        high_rounded_price = self._round_price(high)
+        items = list(self.buckets.items())
+        time_buckets = [
+            time_bucket
+            for price, time_bucket in items
+            if low_rounded_price <= price <= high_rounded_price
+        ]
+        return sum(
+            quantity
+            for time_bucket in time_buckets
+            for quantity in time_bucket.values()
+        )
 
-    def get_top_k_prices(k: int) -> List[Tuple[float, int]]:
+
+
+    def get_top_k_prices(self, k: int) -> list[tuple[str, int]]:
         """
         Return top-K price levels by total quantity.
         """
+        k = min(self.K, k)
+        return sorted([
+            (f"{rounded_price:.2f}", count)
+            for rounded_price, count in list(self.global_heap.items())
+            ],
+            key=lambda price_cnt: -price_cnt[1]
+        )[:k]
 
+
+def test_simple():
+    book = OrderBook("0.01")
+    book.record_order(order_id="order1", timestamp=100, price=100.5, quantity=10)
+    assert book.get_total_quantity(100.504) == 10
+    assert book.get_total_quantity_in_range(100, 150) == 10
+
+    book.record_order(order_id="order2", timestamp=120, price=100.5, quantity=10)
+    book.record_order(order_id="order3", timestamp=240, price=101.0, quantity=5)
+    assert book.get_total_quantity(100.504) == 20
+    assert book.get_top_k_prices(5) == [("100.50", 20), ("101.00", 5)]
+
+    book.record_order(order_id="order4", timestamp=200, price=100.5, quantity=100)
+    book.record_order(order_id="order5", timestamp=150, price=101.5, quantity=15)
+    assert book.get_top_k_prices(2) == [("100.50", 120), ("101.50", 15)]
+
+    book.update_order(order_id="order5", new_price=102, new_quantity=200, timestamp=180)
+    assert book.get_top_k_prices(2) == [("102.00", 200), ("100.50", 120)]
+
+    book.cancel_order(order_id="order5", timestamp=200)
+    assert book.get_top_k_prices(5) == [("100.50", 120), ("101.00", 5), ("101.50", 0), ("102.00", 0)]
+
+
+
+if __name__ == "__main__":
+    test_simple()
