@@ -25,6 +25,7 @@ import numpy as np
 class CountMinSketch:
     def __init__(self, width=1000, depth=5) -> None:
         """
+        Width Error Depth Accuracy (WEDA)
         - Higher width → lower error, more memory
         - Higher depth → better accuracy, slower updates
         """
@@ -48,7 +49,7 @@ class CountMinSketch:
 
     def subtract(self, other: "CountMinSketch"):
         assert self.width == other.width and self.depth == other.depth
-        self.table -= other.table
+        self.table -= other.table # this is the reason why we use np array
         self.table = np.maximum(self.table, 0)
 
 class RollingCMS:
