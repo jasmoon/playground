@@ -10,7 +10,8 @@ This section covers the different levels of practices for leetcode style system 
 |3|Rolling Window, Rolling Buckets|watch_tracker.py
 |4|- Count Min Sketch (CMS) <br> - Rolling CMS <br> - Maintaining Global Top K <br> - Concurrency<br> |hashtag_tracker.py
 |5|- HyperLogLog (HLL) <br> - Rolling HLL|visit_tracker.py
-|6|- Ring Buffer - Atomic Bucket|orderbook.py
+|6|- Ring Buffer <br> - Atomic Bucket|orderbook.py
+
 ## Recommended Practices
 
 - Timestamps
