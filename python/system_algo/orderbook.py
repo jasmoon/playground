@@ -74,13 +74,11 @@ class AtomicBucket:
                 return True
             return False
 
-    def subtract_if_same_time(self, start_time: int, quantity: int) -> bool:
+    def subtract_if_same_time(self, start_time: int, quantity: int) -> None:
         """Subtract quantity from bucket"""
         with self.lock:
             if self.start_time == start_time:
                 self.quantity -= quantity
-                return True
-            return False
 
     def get_quantity_if_valid(self, cutoff_time: int) -> int:
         """Get quantity if bucket is still valid"""
@@ -130,7 +128,7 @@ class RingBuffer:
     def minus(self, timestamp: int, count: int=1) -> int:
         index = self._get_bucket_index(timestamp)
         bucket_start_time = self._get_bucket_start_time(timestamp)
-        _ = self.buckets[index].subtract_if_same_time(bucket_start_time, count)
+        self.buckets[index].subtract_if_same_time(bucket_start_time, count)
         return self.total()
 
     def sum_last_t_seconds(self, t: int, current_time: int):
@@ -175,24 +173,46 @@ class OrderBook:
         self.price_locks = [RLock() for _ in range(num_locks)]
         self.order_locks = [RLock() for _ in range(num_locks)]
 
+    def format_price(self, price: Decimal):
+        return price.quantize(Decimal("0.00"))
+
     def _round_price(self, price: float):
         d_price = Decimal(str(price))
-        return (d_price / self.default_tick_size).quantize(Decimal("1")) * self.default_tick_size
+        return self.format_price(d_price)
 
-    def _get_bucket_lock(self, rounded_price: Decimal):
+    def _get_price_lock(self, rounded_price: Decimal):
         lock_index = hash(rounded_price) % self.num_locks
         return self.price_locks[lock_index]
-    
+
+    def _acquire_price_locks_ordered(self, *prices: Decimal):
+        sorted_prices = sorted(set(prices))
+        locks = [self._get_price_lock(price) for price in sorted_prices]
+
+        for lock in locks:
+            lock.acquire()
+
+        return locks
+
+    def _release_locks(self, locks: list[RLock]):
+        """Release all locks in reverse order"""
+        for lock in reversed(locks):
+            lock.release()
+
     def _get_order_lock(self, order_id: str):
         lock_index = hash(order_id) % self.num_locks
         return self.order_locks[lock_index]
 
     def _update_global_heap(self, rounded_price: Decimal, count: int):
+        """
+        optional function, global heap is difficult to maintain and be
+        """
         with self.global_lock:
-            if (
-                len(self.global_heap) < self.K or
-                self.global_heap and rounded_price in self.global_heap
-            ):
+            if self.global_heap and rounded_price in self.global_heap:
+                if count <= 0:
+                    del self.global_heap[rounded_price]
+                else:
+                    self.global_heap[rounded_price] = count
+            elif len(self.global_heap) < self.K:
                 self.global_heap[rounded_price] = count
             else:
                 price_with_lowest_count, lowest_count = self.global_heap.peekitem()
@@ -213,16 +233,16 @@ class OrderBook:
         with self._get_order_lock(order_id):
             self.storage[order_id] = order
 
-        with self._get_bucket_lock(rounded_price):
+        with self._get_price_lock(rounded_price):
             count = self.price_buckets[rounded_price].add(timestamp, quantity)
 
         self._update_global_heap(rounded_price, count)
 
     def update_order(self, order_id: str, new_price: float, new_quantity: int, timestamp: int):
-        if order_id not in self.storage:
-            return
-
         with self._get_order_lock(order_id):
+            if order_id not in self.storage:
+                return
+
             order = self.storage[order_id]
             if timestamp < order.timestamp: 
                 return
@@ -235,14 +255,16 @@ class OrderBook:
             order.rounded_price = self._round_price(new_price)
             order.quantity = new_quantity
             order.timestamp = timestamp
-                
-            with self._get_bucket_lock(old_rounded_price):
-                count = self.price_buckets[old_rounded_price].minus(old_timestamp, old_quantity)
-                self._update_global_heap(old_rounded_price, count)
 
-            with self._get_bucket_lock(order.rounded_price):
-                count = self.price_buckets[order.rounded_price].add(timestamp, new_quantity)
-                self._update_global_heap(order.rounded_price, count)
+        price_locks = self._acquire_price_locks_ordered(old_rounded_price, order.rounded_price)
+        try:
+            count = self.price_buckets[old_rounded_price].minus(old_timestamp, old_quantity)
+            self._update_global_heap(old_rounded_price, count)
+
+            count = self.price_buckets[order.rounded_price].add(timestamp, new_quantity)
+            self._update_global_heap(order.rounded_price, count)
+        finally:
+            self._release_locks(price_locks)
 
     
     def cancel_order(self, order_id: str, timestamp: int):
@@ -257,7 +279,7 @@ class OrderBook:
             quantity = order.quantity
             del self.storage[order_id]
 
-        with self._get_bucket_lock(rounded_price):
+        with self._get_price_lock(rounded_price):
             count = self.price_buckets[rounded_price].minus(order.timestamp, quantity)
             self._update_global_heap(rounded_price, count)
 
@@ -281,31 +303,36 @@ class OrderBook:
         """
         low_rounded_price = self._round_price(low)
         high_rounded_price = self._round_price(high)
-        ring_buffers = [
-            ring_buffer
-            for price, ring_buffer in list(self.price_buckets.items())
-            if low_rounded_price <= price <= high_rounded_price
-        ]
-        return sum(
-            ring_buffer.total()
-            for ring_buffer in ring_buffers
-        )
 
-    def format_price(self, price: Decimal):
-        return str(price.quantize(Decimal("0.00")))
+        total = 0
+        for price, ring_buffer in list(self.price_buckets.items()):
+            if low_rounded_price <= price <= high_rounded_price:
+                total += ring_buffer.total()
+        return total
 
-    def get_top_k_prices(self, k: int) -> list[tuple[str, int]]:
+    def get_top_k_prices_window(self, k: int) -> list[tuple[str, int]]:
+        """
+        Return top-K price levels by total quantity.
+        """
+        price_quantities = []
+        
+        for price, ring_buffer in list(self.price_buckets.items()):
+            quantity = ring_buffer.total()
+            if quantity > 0:
+                price_quantities.append((str(self.format_price(price)), quantity))
+
+        return sorted(price_quantities, key=lambda price_quantity: -price_quantity[1])[:k]
+
+    def get_top_k_prices_global(self, k: int) -> list[tuple[str, int]]:
         """
         Return top-K price levels by total quantity.
         """
         k = min(self.K, k)
-        return sorted([
-            (self.format_price(rounded_price), count)
-            for rounded_price, count in list(self.global_heap.items())
-            ],
-            key=lambda price_cnt: -price_cnt[1]
-        )[:k]
+        price_quantities = []
+        for rounded_price, count in list(self.global_heap.items()):
+            price_quantities.append((str(self.format_price(rounded_price)), count))
 
+        return sorted(price_quantities, key=lambda price_quantity: -price_quantity[1])[:k]
 
     def get_average_price(self, now: int, t: int):
         total_quantity = total_value = 0
@@ -314,10 +341,10 @@ class OrderBook:
             total_quantity += quantity
             total_value += float(price) * quantity
 
-        res = Decimal("0.0")
         if total_quantity > 0:
-            res = Decimal(str(total_value / total_quantity))
-        return self.format_price(res)
+            avg = Decimal(str(total_value / total_quantity))
+            return  str(self.format_price(avg))
+        return "0.00"
 
 def test_simple():
     book = OrderBook("0.01")
@@ -328,17 +355,25 @@ def test_simple():
     book.record_order(order_id="order2", timestamp=120, price=100.5, quantity=10)
     book.record_order(order_id="order3", timestamp=240, price=101.0, quantity=5)
     assert book.get_total_quantity(100.504) == 20
-    assert book.get_top_k_prices(5) == [("100.50", 20), ("101.00", 5)]
+    assert book.get_top_k_prices_window(5) == [("100.50", 20), ("101.00", 5)]
 
     book.record_order(order_id="order4", timestamp=200, price=100.5, quantity=100)
     book.record_order(order_id="order5", timestamp=150, price=101.5, quantity=15)
-    assert book.get_top_k_prices(2) == [("100.50", 120), ("101.50", 15)]
+    assert book.get_top_k_prices_window(2) == [("100.50", 120), ("101.50", 15)]
 
     book.update_order(order_id="order5", new_price=102, new_quantity=200, timestamp=180)
-    assert book.get_top_k_prices(2) == [("102.00", 200), ("100.50", 120)]
+    assert book.get_top_k_prices_window(2) == [("102.00", 200), ("100.50", 120)]
+    assert book.get_top_k_prices_global(5) == [("102.00", 200), ("100.50", 120), ("101.00", 5)]
 
     book.cancel_order(order_id="order5", timestamp=200)
-    assert book.get_top_k_prices(5) == [("100.50", 120), ("101.00", 5), ("101.50", 0), ("102.00", 0)]
+    assert book.get_top_k_prices_window(5) == [("100.50", 120), ("101.00", 5)]
+    assert book.get_top_k_prices_global(5) == [("100.50", 120), ("101.00", 5)]
+
+    book.record_order(order_id="order6", timestamp=150, price=102.5, quantity=15)
+    book.record_order(order_id="order7", timestamp=150, price=103.5, quantity=25)
+    book.record_order(order_id="order8", timestamp=150, price=104.5, quantity=35)
+    book.record_order(order_id="order9", timestamp=150, price=105.5, quantity=45)
+    assert book.get_top_k_prices_global(6) == [("100.50", 120), ("105.50", 45), ("104.50", 35), ("103.50", 25), ("102.50", 15)]
 
     print("✓ Simple tests passed")
 
