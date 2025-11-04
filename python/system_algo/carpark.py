@@ -234,6 +234,7 @@ class CarparkTracker:
             window_occupancies = [len(self.lot_occupancy[lot_id])]
             capacity = self.capacities[lot_id]
 
+        prev_change = 0
         curr = now
         while curr - self.bucket_size >= cutoff:
             curr_change = (
@@ -241,9 +242,10 @@ class CarparkTracker:
                 self.exit_time_buckets[lot_id].total(cutoff=curr)
             )
 
-            print(f"curr_change:{curr_change}")
-            
-            window_occupancies.append(max(0, window_occupancies[0] - curr_change))
+            diff = curr_change - prev_change
+            # print(f"curr_change:{curr_change}")
+            window_occupancies.append(max(0, window_occupancies[-1] - diff))
+            prev_change = curr_change
             curr -= self.bucket_size
 
         print(window_occupancies)
