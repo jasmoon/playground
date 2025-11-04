@@ -78,7 +78,7 @@ class RingBuffer:
         self.buckets = [AtomicBucket() for _ in range(self.num_buckets)]
 
     def _get_bucket_start_time(self, timestamp: int):
-        return (timestamp // self.bucket_size) * self.bucket_size
+        return (timestamp // self.bucket_size) * self.bucket_size # [ts1-ts2)
 
     def _get_bucket_index(self, timestamp: int):
         return (timestamp // self.bucket_size) % self.num_buckets
@@ -89,11 +89,12 @@ class RingBuffer:
         bucket = self.buckets[bucket_index]
         bucket.add(start_time, quantity)
 
-    def total(self, cutoff_time: int):
+    def total(self, cutoff: int):
         total = 0
+        cutoff_start_time = self._get_bucket_start_time(cutoff)
         for bucket in self.buckets:
             start_time, quantity = bucket.read()
-            if start_time >= cutoff_time: # underestimate
+            if start_time >= cutoff_start_time:
                 total += quantity
         return total
 
@@ -227,23 +228,25 @@ class CarparkTracker:
         now = self.current_time
         last_t_seconds = max(self.bucket_size, last_t_seconds)
         last_t_seconds = min(self.window_seconds, last_t_seconds)
-        cutoff_time = now - last_t_seconds
+        cutoff = now - last_t_seconds
 
         with self._get_lot_lock(lot_id):
             window_occupancies = [len(self.lot_occupancy[lot_id])]
             capacity = self.capacities[lot_id]
 
-
         curr = now
-        while curr >= cutoff_time:
-            net_change = (
-                self.enter_time_buckets[lot_id].total(cutoff_time=curr) -
-                self.exit_time_buckets[lot_id].total(cutoff_time=curr)
+        while curr - self.bucket_size >= cutoff:
+            curr_change = (
+                self.enter_time_buckets[lot_id].total(cutoff=curr) -
+                self.exit_time_buckets[lot_id].total(cutoff=curr)
             )
+
+            print(f"curr_change:{curr_change}")
             
-            window_occupancies.append(max(0, window_occupancies[-1] - net_change))
+            window_occupancies.append(max(0, window_occupancies[0] - curr_change))
             curr -= self.bucket_size
 
+        print(window_occupancies)
         return sum(window_occupancies) / len(window_occupancies) / capacity
 
 
@@ -255,14 +258,14 @@ class CarparkTracker:
         now = self.current_time
         last_t_seconds = max(self.bucket_size, last_t_seconds)
         last_t_seconds = min(self.window_seconds, last_t_seconds)
-        cutoff_time = now - last_t_seconds
+        cutoff = now - last_t_seconds
 
         rates: dict[str, float] = {}
         
         for lot_id in self.capacities.keys():
             net_change = (
-                self.enter_time_buckets[lot_id].total(cutoff_time) - 
-                self.exit_time_buckets[lot_id].total(cutoff_time)
+                self.enter_time_buckets[lot_id].total(cutoff) - 
+                self.exit_time_buckets[lot_id].total(cutoff)
             )
             rates[lot_id] = net_change / last_t_seconds
         
@@ -388,13 +391,13 @@ def test_occupancy_rate_ringbuffer():
     # Debug: Check what's in the buckets
     print("\nBucket contents:")
     for t in [120, 110, 100, 90]:
-        enters = tracker.enter_time_buckets["A"].total(cutoff_time=t)
-        exits = tracker.exit_time_buckets["A"].total(cutoff_time=t)
+        enters = tracker.enter_time_buckets["A"].total(cutoff=t)
+        exits = tracker.exit_time_buckets["A"].total(cutoff=t)
         print(f"  From t={t} onwards: {enters} enters, {exits} exits, net={enters-exits}")
     
     # Calculate rate over last 30 seconds [90, 120]
     rate = tracker.get_occupancy_rate_rb("A", 30)
-    
+
     # Expected reconstruction:
     # Time 120: 6 cars (current)
     # Bucket [110, 120): 0 enters, 2 exits → net = -2
@@ -410,6 +413,59 @@ def test_occupancy_rate_ringbuffer():
     expected_rate = 4.75 / 100
     print(f"Expected rate: {expected_rate:.4f}")
     assert abs(rate - expected_rate) < 0.01, f"Rate should be ~{expected_rate}, got {rate}"
+
+    rate = tracker.get_occupancy_rate_rb("A", 35)
+    print(f"\nCalculated rate: {rate:.4f}")
+    assert abs(rate - expected_rate) < 0.01, f"Rate should be ~{expected_rate}, got {rate}"
+
+    tracker = CarparkTracker(capacities={"A": 100}, bucket_size=10)
+    
+    # Time 100: 5 cars enter
+    for i in range(5):
+        tracker.record_event("A", f"CAR{i}", CarparkEventType.ENTER, 100)
+    
+    # Time 110: 3 more cars enter (total 8)
+    for i in range(5, 8):
+        tracker.record_event("A", f"CAR{i}", CarparkEventType.ENTER, 110)
+    
+    # Time 119: 2 cars exit (total 6)
+    for i in range(2):
+        tracker.record_event("A", f"CAR{i}", CarparkEventType.EXIT, 119)
+    
+    # Current time is 119, occupancy is 6
+    current = tracker.get_current_occupancy('A')
+    print(f"Current occupancy at t=119: {current}")
+    
+    # Debug: Check what's in the buckets
+    print("\nBucket contents:")
+    for t in [119, 110, 100, 90]:
+        enters = tracker.enter_time_buckets["A"].total(cutoff=t)
+        exits = tracker.exit_time_buckets["A"].total(cutoff=t)
+        print(f"  From t={t} onwards: {enters} enters, {exits} exits, net={enters-exits}")
+    
+    # Calculate rate over last 30 seconds [89, 119]
+    rate = tracker.get_occupancy_rate_rb("A", 30)
+
+    # Expected reconstruction:
+    # Time 119: 6 cars (current)
+    # Bucket [110, 120): 3 enters, 2 exits → net = +1
+    #   → Time 110: 6 - 1 = 5 cars
+    # Bucket [100, 110): 5 enters, 0 exits → net = +5
+    #   → Time 100: 5 - 5 = 0 cars
+    # Bucket [90, 100): 0 enters, 0 exits → net = 0
+    #   → Time 90: 0 - 0 = 0 cars
+    # Average: (6 + 5 + 0 + 0) / 4 = 2.75 cars
+    # Rate: 2.75 / 100 = 0.0275
+    
+    print(f"\nCalculated rate: {rate:.4f}")
+    expected_rate = 2.75 / 100
+    print(f"Expected rate: {expected_rate:.4f}")
+    assert abs(rate - expected_rate) < 0.01, f"Rate should be ~{expected_rate}, got {rate}"
+
+    rate = tracker.get_occupancy_rate_rb("A", 35)
+    print(f"\nCalculated rate: {rate:.4f}")
+    assert abs(rate - expected_rate) < 0.01, f"Rate should be ~{expected_rate}, got {rate}"
+
     print("✓ Ring buffer reconstruction works")
 
 
