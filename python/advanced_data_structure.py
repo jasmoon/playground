@@ -51,8 +51,10 @@ print(sl.bisect_left(("a", 3)))   # 1
 print(sl.bisect_right(("a", 3)))  # 2
 sl.discard(('a', 1))              # O(log n)
 print(sl)                               # SortedList([('a', 3), ('a', 5)])
+sl.pop(0)                                # O(log n)
+print(sl)                               # SortedList([('a', 5)])
 
-print([v for v in sl.irange(("a", 4), ("e", 1000), inclusive=(True, False))]) # [('a', 5)]
+print([v for v in sl.irange(("a", 4), ("e", 1000), inclusive=(True, False))]) # [('a', 3)]
 
 print("\n################# SortedSet #################\n")
 
