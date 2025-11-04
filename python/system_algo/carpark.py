@@ -53,7 +53,7 @@ class AtomicBucket:
 
     def add(self, start_time: int, quantity: int):
         with self.lock:
-            if start_time == self.start_time == start_time:
+            if start_time == self.start_time:
                 self.quantity += quantity
             elif start_time > self.start_time:
                 self.start_time = start_time
