@@ -120,7 +120,7 @@ class CarparkTracker:
         self.lot_occupancy: dict[str, set[str]] =  {}           # lot_id -> set(car_id)
         self.enter_time_buckets: dict[str, RingBuffer] = {}     # lot_id -> hash ring
         self.exit_time_buckets: dict[str, RingBuffer] = {}      # lot_id -> hash ring
-        self.occupancy_snapshots: dict[str, list[tuple[int, int]]] = {}            # lot_id -> SortedList[(timestamp, occupany)]
+        self.occupancy_snapshots: dict[str, list[tuple[int, int]]] = {}            # lot_id -> SortedList[(timestamp, occupancy)]
 
         for lot_id in capacities.keys():
             self.enter_time_buckets[lot_id] = RingBuffer(window_seconds, bucket_size)
@@ -153,7 +153,7 @@ class CarparkTracker:
                 lot.discard(car_id)
                 return True
     
-    def _record_occupany_snapshot(self, lot_id: str, timestamp: int):
+    def _record_occupancy_snapshot(self, lot_id: str, timestamp: int):
         if timestamp % 60 == 0:
             with self._get_lot_lock(lot_id):
                 occupancy = len(self.lot_occupancy[lot_id])
@@ -182,7 +182,7 @@ class CarparkTracker:
         if not self._record_occupancy(lot_id, car_id, event_type):
             return
         
-        self._record_occupany_snapshot(lot_id, timestamp)
+        self._record_occupancy_snapshot(lot_id, timestamp)
         if event_type == CarparkEventType.ENTER:
             self.enter_time_buckets[lot_id].add(timestamp)
         else:
@@ -206,9 +206,12 @@ class CarparkTracker:
         now = self.current_time
         cutoff = now - last_t_seconds
         with self._get_lot_lock(lot_id):
-            capacity = self.capacities[lot_id]
-            snapshot = self.occupancy_snapshots.get(lot_id, [])
+            capacity = self.capacities.get(lot_id, 0)
+            if capacity == 0:
+                return 0.
 
+            snapshot = self.occupancy_snapshots.get(lot_id, [])
+        
         snapshots = [
             occupancy
             for timestamp, occupancy in snapshot
@@ -243,12 +246,10 @@ class CarparkTracker:
             )
 
             diff = curr_change - prev_change
-            # print(f"curr_change:{curr_change}")
             window_occupancies.append(max(0, window_occupancies[-1] - diff))
             prev_change = curr_change
             curr -= self.bucket_size
 
-        print(window_occupancies)
         return sum(window_occupancies) / len(window_occupancies) / capacity
 
 
