@@ -1,6 +1,3 @@
-from typing import Any
-
-
 from collections import defaultdict
 
 # Problem: Longest Substring with At Most K Distinct Characters

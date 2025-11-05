@@ -72,7 +72,7 @@ class RingBuffer:
     ) -> None:
         self.window_seconds = window_seconds
         self.bucket_size = bucket_size
-        self.num_buckets = window_seconds // bucket_size
+        self.num_buckets = window_seconds // bucket_size + 1
 
         
         self.buckets = [AtomicBucket() for _ in range(self.num_buckets)]
