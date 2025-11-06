@@ -94,7 +94,7 @@ class RingBuffer:
         cutoff_start_time = self._get_bucket_start_time(cutoff)
         for bucket in self.buckets:
             start_time, quantity = bucket.read()
-            if start_time >= cutoff_start_time:
+            if start_time >= cutoff_start_time and quantity > 0:
                 total += quantity
         return total
 
@@ -154,7 +154,7 @@ class CarparkTracker:
                 return True
     
     def _record_occupancy_snapshot(self, lot_id: str, timestamp: int):
-        if timestamp % 60 == 0:
+        if timestamp % 60 == 0: # TODO can think of a better strategy to store snapshots
             with self._get_lot_lock(lot_id):
                 occupancy = len(self.lot_occupancy[lot_id])
                 if lot_id not in self.occupancy_snapshots:
