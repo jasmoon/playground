@@ -20,6 +20,29 @@ This section covers the different levels of practices for leetcode style system 
 ### Timestamps
 - Use epoch (int) datatype to store timestamps: save time from parsing, manipulation using datetime.
 - Use `relativedelta` from dateutil.relativedelta to find earlier / future dates. Look at `payment/recurring.py`
+
+###  Approximation data structures
+ -  Count Min Sketch (CMS)
+    -  Approximate frequency counting
+    -  Library: `from countminsketch import CountMinSketch` (3rd party) or implement manually using hashes
+    -  Typical operations: `add(item)`, `query(item)`
+    -  Great for streaming data (e.g. top-k queries, heavy hitters, rate limiting)
+ -  HyperLogLog (HLL)
+    -  Approximate cardinality (number of unique elements)
+    -  Library: `from hyperloglog import HyperLogLog`
+    -  Typical operations: `add(item)`, `count()`
+    -  Used for distinct user counts, unique visitors, analytics metrics
+ -  Bloom Filter:
+    -  Probabilistic membership testing
+    -  Library: `from pybloom_live import BloomFilter`
+    -  Typical operations: `add(item)`, `might_contain(item)`
+    -  Ideal for cache filtering, deduplication, avoiding expensive lookups
+ -  Cuckoo Filter:
+    -  Probabilistic membership + deletion
+    -  Library: `from cuckoofilter import CuckooFilter`
+    -  Typical operations: `add(item)`, `contains(item)`, `delete(item)`
+    -  Used in networking, caches, and databases where deletion is required
+
 ### Locks
 - When introducing a lock, it is good to start simple, but measure and profile before optimizing
 - We can first introduce a global lock for simplicity but can create bottlenecks in production.
@@ -44,24 +67,4 @@ If you need to safely remove locks, consider:
 - RCU (Read-Copy-Update) patterns
 - Lock-free data structures
 - Accepting that some locks live for the program's lifetime
-###  Approximation data structures
- -  Count Min Sketch (CMS)
-    -  Approximate frequency counting
-    -  Library: `from countminsketch import CountMinSketch` (3rd party) or implement manually using hashes
-    -  Typical operations: `add(item)`, `query(item)`
-    -  Great for streaming data (e.g. top-k queries, heavy hitters, rate limiting)
- -  HyperLogLog (HLL)
-    -  Approximate cardinality (number of unique elements)
-    -  Library: `from hyperloglog import HyperLogLog`
-    -  Typical operations: `add(item)`, `count()`
-    -  Used for distinct user counts, unique visitors, analytics metrics
- -  Bloom Filter:
-    -  Probabilistic membership testing
-    -  Library: `from pybloom_live import BloomFilter`
-    -  Typical operations: `add(item)`, `might_contain(item)`
-    -  Ideal for cache filtering, deduplication, avoiding expensive lookups
- -  Cuckoo Filter:
-    -  Probabilistic membership + deletion
-    -  Library: `from cuckoofilter import CuckooFilter`
-    -  Typical operations: `add(item)`, `contains(item)`, `delete(item)`
-    -  Used in networking, caches, and databases where deletion is required
+
