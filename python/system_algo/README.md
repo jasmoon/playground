@@ -6,8 +6,8 @@ This section covers the different levels of practices for leetcode style system 
 |Recommended order|Lessons|Where To Go|
 |--|--|--|
 |1|New to this type of questions|`basic` folder
-|2|Bloom Filter, Rate Limiting, Window Deduplication|`intermediate` folder
-|3|Rolling Window, Rolling Buckets|watch_tracker.py
+|2|- Bloom Filter <br> - Rate Limiting <br> - Window Deduplication|`intermediate` folder
+|3|- Rolling Window <br> - Rolling Buckets|watch_tracker.py
 |4|- Count Min Sketch (CMS) <br> - Rolling CMS <br> - Maintaining Global Top K <br> - Concurrency<br> |hashtag_tracker.py
 |5|- HyperLogLog (HLL) <br> - Rolling HLL|visit_tracker.py
 |6|- Ring Buffer <br> - Atomic Bucket|orderbook.py
