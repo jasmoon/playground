@@ -76,9 +76,9 @@ class UnionFind:
         self.parent = list(range(n)) # set every node as parent of itself
         self.rank = [0] * n
 
-    def find(self, x: int):
-        if self.parent[x] != x:
-            self.parent[x] = self.find(self.parent[x])
+    def find(self, x: int):                             # find the root, the parent of the root will be itself
+        if self.parent[x] != x:                         # check the parent if it is itself
+            self.parent[x] = self.find(self.parent[x])  # compression
         return self.parent[x]
 
     def union(self, x: int, y: int):
