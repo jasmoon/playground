@@ -21,9 +21,6 @@
 # - The system must handle hundreds of ads and regions efficiently.
 # - The solution should be thread-safe and allow concurrent updates.
 # - Approximation is acceptable if it greatly improves performance.
-from typing import Any
-
-
 import heapq
 from threading import Lock
 import mmh3
