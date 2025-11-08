@@ -5,18 +5,19 @@
 
 # APIs
 # Part 1, implement the following methods:
-# def record_event(self, user_id: str, event_type: str, timestamp: int) -> None:
+# def record_event(self, event_id: str, user_id: str, event_type: str, timestamp: int) -> None:
 #     """
 #     Record that a user triggered an event (e.g. 'view', 'like') at the given timestamp (seconds).
 #     """
 
-# def update_event_timestamp(self, user_id: str, old_timestamp: int, new_timestamp: int) -> bool:
+# def update_event_timestamp(self, event_id: str, new_timestamp: int) -> bool:
 #     """
 #     Update the timestamp of a previously recorded event.
 #     Return False if the old event doesn’t exist or is too old to update.
-#     """
+#     """    def update_event_timestamp(self, event_id: str, new_timestamp: int) -> bool:
 
-# def delete_event(self, user_id: str, timestamp: int) -> bool:
+
+# def delete_event(self, event_id: str, timestamp: int) -> bool:
 #     """
 #     Delete a previously recorded event.
 #     Return False if the event doesn’t exist or is outside the current tracking window.
@@ -42,7 +43,7 @@
 # - When an event is deleted or moved, the aggregate for that bucket must decrease accordingly.
 # - Concurrency awareness (for extra credit): Discuss or design where locks would be placed if this were a multi-threaded tracker.
 
-# Part 2, implement the following APIs:
+# Part 2, implement the following APIs, get_* apis below don't follow the time window:
 
 
 # def delete_user(self, user_id: str) -> bool:
@@ -197,7 +198,7 @@ class EventTracker:
 
         rb.add(timestamp)
 
-    def update_event_timestamp(self, event_id: str, user_id: str, new_timestamp: int) -> bool:
+    def update_event_timestamp(self, event_id: str, new_timestamp: int) -> bool:
         """
         Update the timestamp of a previously recorded event.
         Return False if the old event doesn’t exist or is too old to update.
