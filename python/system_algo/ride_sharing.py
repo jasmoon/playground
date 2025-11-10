@@ -243,14 +243,13 @@ class RideSharingAnalytics:
 
     def get_top_drivers_by_distance_computed(self, k: int) -> list[tuple[int, float]]:
         """Returns top N drivers ranked by total distance driven."""
+        k = min(k, self.top_k_default)
         with self.top_k_drivers_lock:
-            top_k_drivers = dict(self.top_k_drivers)
-
-        return sorted(
-            top_k_drivers.items(),
-            key=lambda driver_id_distance: driver_id_distance[1],
-            reverse=True,
-        )[:k]
+            return heapq.nlargest(
+                k,
+                self.top_k_drivers.items(),
+                key=lambda driver_id_distance: driver_id_distance[1],
+            )
                     
     def get_driver_stats(self, driver_id: int) -> tuple[int, int, float]:
         """
