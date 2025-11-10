@@ -43,10 +43,9 @@
 # - Assume timestamps are increasing but not necessarily strictly (some late events possible).
 from collections import defaultdict
 from dataclasses import dataclass
-import heapq
-from threading import Lock
-
 from heapdict import heapdict
+from threading import Lock
+import heapq
 
 @dataclass
 class Ride:
@@ -91,7 +90,6 @@ class RideSharingAnalytics:
         self.analytics_lock = Lock()
         self.top_k_drivers_lock = Lock()
 
-
     def _get_active_ride_shard_and_lock(self, ride_id: int):
         shard_index = hash(ride_id) % self.num_locks
         return (
@@ -114,8 +112,6 @@ class RideSharingAnalytics:
         )
 
     def _update_top_k_drivers(self, driver_id:int, total_distance: float):
-        if total_distance == 0.:
-            return
         with self.top_k_drivers_lock:
             if (
                 len(self.top_k_drivers) < self.top_k_default or
@@ -127,7 +123,6 @@ class RideSharingAnalytics:
                 if total_distance > lowest_distance:
                     self.top_k_drivers.popitem()
                     self.top_k_drivers[driver_id] = total_distance
-
 
     def start_ride(self, ride_id: int, driver_id: int, rider_id: int, city: str, start_time: int) -> None:
         """Records a new ride start event. Each ride_id is unique."""
@@ -251,14 +246,11 @@ class RideSharingAnalytics:
         with self.top_k_drivers_lock:
             top_k_drivers = dict(self.top_k_drivers)
 
-        return [
-            (driver_id, distance)
-            for driver_id, distance in sorted(
-                top_k_drivers.items(),
-                key=lambda driver_id_distance: driver_id_distance[1],
-                reverse=True
-            )
-        ]
+        return sorted(
+            top_k_drivers.items(),
+            key=lambda driver_id_distance: driver_id_distance[1],
+            reverse=True,
+        )[:k]
                     
     def get_driver_stats(self, driver_id: int) -> tuple[int, int, float]:
         """
