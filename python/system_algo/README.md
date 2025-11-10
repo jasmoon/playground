@@ -17,6 +17,15 @@ This section covers the different levels of practices for leetcode style system 
 
 ## Recommended Practices
 
+### `defaultdict`
+
+- Use `defaultdict` when you *never delete keys* (only accumulate)
+- It is best used for simple counters or dictionary with fixed keys initiation like:
+```
+analytics = defaultdict(lambda: {"size":0, "unique_count": 0})
+```
+- when *only reading* values, it is best to use `d.get(key)` as `d[key]` calls the `default_factory` if key is missing
+
 ### Timestamps
 - Use epoch (int) datatype to store timestamps: save time from parsing, manipulation using datetime.
 - Use `relativedelta` from dateutil.relativedelta to find earlier / future dates. Look at `payment/recurring.py`
