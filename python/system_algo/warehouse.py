@@ -238,10 +238,10 @@ class InventorySystem:
         success = False
         if lock1 is lock2:
             with lock1:
-                success = self._transfer_stock(item_id, from_warehouse, to_warehouse, quantity, timestamp)
+                success = self._transfer_stock(item_id, from_warehouse, to_warehouse, quantity)
         else:
             with locks[0], locks[1]:
-                success = self._transfer_stock(item_id, from_warehouse, to_warehouse, quantity, timestamp)
+                success = self._transfer_stock(item_id, from_warehouse, to_warehouse, quantity)
         if not success:
             return False
         self._add_item_audit_op(item_id, quantity, timestamp, InventoryStockOperation.TFR, from_warehouse, to_warehouse)
