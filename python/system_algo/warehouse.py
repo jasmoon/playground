@@ -63,7 +63,7 @@
 
 # Audit logs should be bounded (e.g., keep last 1000 ops per item).
 import heapq
-from collections import OrderedDict, deque
+from collections import OrderedDict, defaultdict, deque
 from enum import Enum
 from threading import Lock, RLock
 
@@ -84,11 +84,11 @@ class InventorySystem:
 
         # item level
         self.item_warehouse_stocks: dict[int, dict[int, int]] = {}     # item id -> warehouse id -> count
-        self.item_transfers = {}            # item id -> count
+        self.item_transfers = defaultdict(int)            # item id -> count
         self.item_latest_ops: dict[int, deque[ItemOp]] = {}           # item id -> [(timestamp, operation, warehouse_id(s), quantity)]
 
         # warehouse level
-        self.warehouse_stock_movement = {}  # warehouse id -> stock movement count
+        self.warehouse_stock_movement = defaultdict(int)  # warehouse id -> stock movement count
 
         self.ops_max_len = ops_max_len
         self.num_locks = num_locks
@@ -144,7 +144,7 @@ class InventorySystem:
         quantity: int,
     ):
         with self.analytics_lock:
-            self.warehouse_stock_movement[warehouse_id] = self.warehouse_stock_movement.get(warehouse_id, 0) + quantity
+            self.warehouse_stock_movement[warehouse_id] += quantity
 
     def _add_stock(self, item_id: int, quantity: int, warehouse_id: int):
         """
@@ -210,14 +210,14 @@ class InventorySystem:
         self._add_warehouse_stock_movement(warehouse_id, quantity)
         return True
 
-    def _transfer_stock(self, item_id: int, from_warehouse: int, to_warehouse: int, quantity: int, timestamp: int):
+    def _transfer_stock(self, item_id: int, from_warehouse: int, to_warehouse: int, quantity: int):
         if not self._remove_stock(item_id, quantity, from_warehouse):
             return False
 
         self._add_stock(item_id, quantity, to_warehouse)
         # Increment without lock - minor race acceptable for analytics
         with self.analytics_lock:
-            self.item_transfers[item_id] = self.item_transfers.get(item_id, 0) + quantity
+            self.item_transfers[item_id] += quantity
         return True
 
     def transfer_stock(self, item_id: int, from_warehouse: int, to_warehouse: int, quantity: int, timestamp: int) -> bool:
