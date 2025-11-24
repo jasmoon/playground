@@ -69,6 +69,7 @@ from collections import defaultdict, deque
 # dp to deal with the discount?
 from collections import defaultdict
 import heapq
+from typing import Any
 
 
 def discounted_path(n: int, edges: list[list[int]]):
@@ -225,7 +226,6 @@ def alien_dictionary(words: list[str]) -> str:
 
     queue = deque([char for char in chars if char not in in_degrees])
     order = []
-    print(f"queue: {in_degrees}")
 
     while queue:
         node = queue.popleft()
@@ -237,6 +237,70 @@ def alien_dictionary(words: list[str]) -> str:
 
 
     return "" if len(order) < len(chars) else "".join(order)
+
+
+class UnionFind:
+    def __init__(self, n: int) -> None:
+        self.parent = list(range(n))
+        self.rank = [0] * n
+
+    def find(self, x: int):
+        if self.parent[x] != x:
+            self.parent[x] = self.find(self.parent[x])
+        return self.parent[x]
+
+    def union(self, x, y):
+        px, py = self.find(x), self.find(y)
+        if px == py:
+            return False
+
+        if self.rank[px] < self.rank[py]:
+            self.parent[px] = py
+        elif self.rank[py] < self.rank[px]:
+            self.parent[py] = px
+        else:
+            self.parent[py] = px
+            self.rank[px] += 1
+
+        return True
+
+# LC 305 – Number of Islands II (Hard)
+
+# Problem:
+# You start with an empty grid (all water). You are given a list of coordinates, each turning that cell into land. After each operation, return the current number of islands.
+# Each connecting land in any of the 4 directions is considered an island.
+def number_of_islands_ii(m: int, n: int, positions: list[list[int]]):
+    """
+    best, average, worst case: O(a * k)
+    """
+    land: set[Any] = set()
+    dirs = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+    ans = []
+    uf = UnionFind(m * n)
+    count = 0
+
+    for row, col in positions:
+        if (row, col) in land:
+            ans.append(count)
+            continue
+
+        land.add((row, col))
+        new_index = row * n + col
+
+        # every new land starts as a new island
+        count += 1
+
+        for drow, dcol in dirs:
+            nrow, ncol = row + drow, col + dcol
+            if nrow < 0 or nrow >= m or ncol < 0 or ncol >= n or (nrow, ncol) not in land:
+                continue
+            nbr_index = nrow * n + ncol
+            if uf.union(new_index, nbr_index): # manage to connect to another land
+                count -= 1
+    
+        ans.append(count)
+    return ans
+
 
 def test_simple():
     scc_tcs = [
@@ -254,7 +318,7 @@ def test_simple():
         output = scc_kosaraju(edges, n)
         assert sorted(expected) == sorted(output)
 
-    alien_dictionary_tccs = [
+    alien_dictionary_tcs = [
         (
             ["wrt","wrf","er","ett","rftt"],
             "wertf"
@@ -272,8 +336,64 @@ def test_simple():
             ""
         )
     ]
-    for words, expected in alien_dictionary_tccs:
+    for words, expected in alien_dictionary_tcs:
         output = alien_dictionary(words)
+        assert expected == output
+
+    number_of_islands_ii_tccs = [
+        (
+            3,
+            3,
+            [[0,0], [0,1], [1,2], [2,1]],
+            [1, 1, 2, 3]
+        ),
+        (
+            3,
+            3,
+            [[0,0], [0,1], [1,2], [2,1], [2, 2], [1, 1]],
+            [1, 1, 2, 3, 2, 1]
+        ),
+        (
+            2,
+            2,
+            [[0,0], [0,0], [1,1], [1,1]],
+            [1, 1, 2, 2]
+        ),
+        (
+            3,
+            3,
+            [
+                [0,0], [0,2],
+                [1,1], [2,0], [2,2],
+                [1,0], [1,2]
+            ],
+            [1, 2, 3, 4, 5, 3, 1]
+        ),
+        (
+            1, 5,
+            [[0,0], [0,2], [0,4], [0,1], [0,3]],
+            [1, 2, 3, 2, 1]
+        ),
+        (
+            5, 1,
+            [[0,0], [2,0], [4,0], [1,0], [3,0]],
+            [1, 2, 3, 2, 1]
+        ),
+        (
+            5, 5,
+            [
+                [0,0], [4,4], [2,2], [0,1], [1,1], [1,2]
+            ],
+            [1, 2, 3, 3, 3, 2]
+        ),
+        (
+            3, 3,
+            [[1,1], [0,1], [2,1], [1,0], [1,2], [0,0], [0,2], [2,0], [2,2]],
+            [1,1,1,1,1,1,1,1,1]
+        )
+    ]
+    for m, n, positions, expected in number_of_islands_ii_tccs:
+        output = number_of_islands_ii(m, n, positions)
         print(f"output is {output}")
         assert expected == output
 
