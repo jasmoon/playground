@@ -114,6 +114,42 @@ def mst_kruskal(edges: list[tuple[int, int, int]], n: int) -> tuple[list[tuple[i
             break
     return mst, total
 
+# LC 286 – Walls and Gates (Medium)
+
+# Problem:
+# You are given a grid with 3 types of cells:
+# 0 → gate
+# -1 → wall
+# INF → empty room
+
+# You must fill each empty room with its shortest distance to a gate. If unreachable, keep INF.
+def wag(grid: list[list[float | int]]):
+    rows, cols = len(grid), len(grid[0])
+    queue = deque()
+    dirs = [(0, 1), (0, -1), (1, 0), (-1, 0)]
+
+    for row in range(rows):
+        for col in range(cols):
+            if grid[row][col] == 0:
+                queue.append((row, col))
+
+    dist = 1
+    while queue:
+        cur_len = len(queue)
+        for _ in range(cur_len):
+            row, col = queue.popleft()
+            for drow, dcol in dirs:
+                nrow, ncol = row + drow, col + dcol
+                if nrow < 0 or nrow >= rows or ncol < 0 or ncol >= cols or grid[nrow][ncol] == -1:
+                    continue
+
+                if dist < grid[nrow][ncol]:
+                    grid[nrow][ncol] = dist
+                    queue.append((nrow, ncol))
+
+        dist += 1
+    return grid
+
 def test_simple():
     shortest_path_tcs = [
         (
@@ -189,6 +225,29 @@ def test_simple():
         print(output_edges)
         assert sorted(expected_edges_kruskal) == sorted(output_edges)
         assert expected_cost == output_cost
+
+    mst_wag = [
+        (
+            [
+                [float("inf"), -1, 0, float("inf")],
+                [float("inf"), float("inf"), float("inf"), -1],
+                [float("inf"), -1, float("inf"), -1],
+                [0, -1, float("inf"), float("inf")],
+            ],
+            [
+                [3, -1, 0, 1],
+                [2, 2, 1, -1],
+                [1, -1, 2, -1],
+                [0, -1, 3, 4]
+            ]
+        ),
+    ]
+
+    for grid, expected in mst_wag:
+        output = wag(grid)
+        print(output)
+        assert expected == output
+
 
 if __name__ == "__main__":
     test_simple()

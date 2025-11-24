@@ -1,4 +1,6 @@
 # See https://help.github.com/articles/ignoring-files/ for more about ignoring files.
+python/algo/interview/*
+
 
 # dependencies
 node_modules

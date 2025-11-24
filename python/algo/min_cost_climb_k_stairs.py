@@ -5,15 +5,15 @@ import heapq
 # - we can jump a maximum of k steps at each step
 # - return the minimum cost to climb the stairs
 def jump_k_steps(costs: list[int], k: int) -> int:
-    minHeap: list[tuple[int, int]] = []
+    min_heap: list[tuple[int, int]] = []
     n: int = len(costs)
 
     for i in range(n):
-        while minHeap and i - minHeap[0][1] > k:
-            heapq.heappop(minHeap)
-        if minHeap and i > 1:
-            costs[i] += minHeap[0][0]
-        heapq.heappush(minHeap, (costs[i], i))
+        while min_heap and i - min_heap[0][1] > k:
+            heapq.heappop(min_heap)
+        if min_heap and i > 1:
+            costs[i] += min_heap[0][0]
+        heapq.heappush(min_heap, (costs[i], i))
     return min(costs[-k:])
 
 tcs = [

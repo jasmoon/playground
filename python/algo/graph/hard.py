@@ -1,5 +1,109 @@
 from collections import defaultdict, deque
 
+# Shortest Path with One Discount Coupon
+
+# You are given a directed weighted graph with n nodes and m edges.
+# Each edge (u, v, w) means there is a directed edge from node u to node v with cost w, where w > 0.
+# You start from node 1 and want to reach node n.
+
+# You have one discount coupon that can be used at most once along your path.
+# When you use it on an edge with cost w, that edge’s cost becomes ⌊w / 2⌋.
+# You may also choose not to use the coupon.
+
+# Return the minimum possible total cost from node 1 to node n.
+# If no path exists, return -1.
+
+# Input
+
+# First line: two integers n m
+
+# Next m lines: u v w
+# (a directed edge from u to v with cost w)
+
+# There are no self-loops, but multiple edges between the same pair may exist.
+
+# Output
+
+# A single integer — the minimum total cost from 1 to n.
+
+# Constraints
+
+# 1 ≤ n ≤ 2 * 10^5
+
+# 1 ≤ m ≤ 5 * 10^5
+
+# 1 ≤ w ≤ 10^9
+
+# Example
+# Input:
+# 5 6
+# 1 2 10
+# 2 5 10
+# 1 3 100
+# 3 4 1
+# 4 5 1
+# 2 3 1
+
+# Output:
+# 8
+
+
+# Explanation
+# One optimal path is 1 → 2 → 3 → 4 → 5 with total original cost 10 + 1 + 1 + 1 = 13.
+# Using the coupon on the edge (1, 2) reduces its cost to 5,
+# so total cost becomes 5 + 1 + 1 + 1 = 8.
+# No other path yields a smaller result.
+
+# n nodes
+# m edges
+# positive weights
+# start from node 1
+# costs to every node = [undiscounted, discounted]
+# dikstraja
+# 
+# Deal with discount
+# iterate each edge to use discount: O(E * (E log V))
+# 
+# boolean array
+# state = use coupon/ not use
+# dp to deal with the discount?
+from collections import defaultdict
+import heapq
+
+
+def discounted_path(n: int, edges: list[list[int]]):
+    """
+    best, average, worst: O((V + E) log V)
+    """
+    graph: defaultdict[int, list[tuple[int, int]]] = defaultdict(list)
+
+    for u, v, w in edges: # O(E)
+        graph[u].append((v, w))
+        graph[v].append((u, w))
+
+    def dikstraja(start_node: int): # O((E+V) * log V))
+        costs = [float("inf")] * n
+        costs[start_node] = 0
+        min_heap: list[tuple[int, int]] = [(0, start_node)]
+
+        while min_heap:
+            cur_node, cost = heapq.heappop(min_heap)
+            for nbr, add_cost in graph[cur_node]:
+                total_cost = cost + add_cost
+                if total_cost < costs[nbr]:
+                    costs[nbr] = total_cost
+                    heapq.heappush(min_heap, (total_cost, nbr))
+        return costs
+
+    costs_from_source = dikstraja(0)
+    costs_from_dest = dikstraja(n-1)
+
+    lowest_cost = float("inf")
+    for u, v, w in edges: # O(E)
+        total_cost = costs_from_source[u] + costs_from_dest[v] + w / 2
+        lowest_cost = min(total_cost, lowest_cost)
+    return lowest_cost
+
 # Strongly Connected Components
 # Given a directed graph, find all strongly connected components.
 # SCC: In a directed graph, a strongly connected component is a maximal set of vertices where every vertex is reachable
@@ -96,6 +200,9 @@ def scc_kosaraju(edges: list[tuple[int, int]], n: int) -> list[list[int]]:
 # That’s a contradiction (cycle), no valid order → return "".
 
 def alien_dictionary(words: list[str]) -> str:
+    """
+    best, average, worst case: O(V + E)
+    """
     # calculate indegree and track edges
     # try to create topological order
     in_degrees = defaultdict(int)
@@ -104,6 +211,7 @@ def alien_dictionary(words: list[str]) -> str:
     
     for i in range(len(words)-1):
         w1, w2 = words[i], words[i + 1]
+        # If a word is a prefix of the previous word and comes later (e.g. "abc" then "ab"), that’s invalid → return ""
         if len(w1) > len(w2) and w1.startswith(w2):
             return ""
 
@@ -117,14 +225,16 @@ def alien_dictionary(words: list[str]) -> str:
 
     queue = deque([char for char in chars if char not in in_degrees])
     order = []
+    print(f"queue: {in_degrees}")
 
     while queue:
         node = queue.popleft()
         order.append(node)
         for nbr in graph[node]:
             in_degrees[nbr] -= 1
-            if in_degrees[nbr] == 0:
+            if in_degrees[nbr] == 0: # for characters that are cyclic in the input, can never have their indegrees become 0
                 queue.append(nbr)
+
 
     return "" if len(order) < len(chars) else "".join(order)
 
@@ -154,7 +264,11 @@ def test_simple():
             "zx"
         ),
         (
-            ["z","x","z"],
+            ["z","x","z"], # `queue` before iteration will be empty in this test case
+            ""
+        ),
+        (
+            ["w", "z", "x", "z"],
             ""
         )
     ]
