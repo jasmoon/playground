@@ -12,26 +12,39 @@ def meeting_rooms(intervals: list[list[int]]):
     return True
 
 # Leetcode 253
+# You are given a list of meeting time intervals:
+
+# intervals[i] = [start_i, end_i]
+
+# Each meeting needs one room, and a room can only host one meeting at a time.
+# 👉 Return the minimum number of meeting rooms required so that all meetings can take place without overlap.
 def meeting_rooms_ii_heap(intervals: list[list[int]]):
-    intervals.sort(key=lambda interval: interval[0])
+    """
+    best, average, worst case: O(n log n + n log k)
+    Since k <= n, dominating term: O(n log n)
+    """
+    intervals.sort(key=lambda interval: interval[0]) # O(n log n)
 
     min_heap: list[int] = []
     heapq.heappush(min_heap, intervals[0][1])
 
-    for start, end in intervals[1:]:
+    for start, end in intervals[1:]:    # O(n)
         # if earliest ending meeting finished before current starts, reuse
         if min_heap[0] <= start: 
-            heapq.heappop(min_heap)
-        heapq.heappush(min_heap, end)
+            heapq.heappop(min_heap)     # O(log k) where k is the max number of concurrent meetings
+        heapq.heappush(min_heap, end)   # O(log k)
     return len(min_heap)
 
 def meeting_rooms_ii_ptr(intervals: list[list[int]]):
-    starts: list[int] = sorted(start for start, _ in intervals)
-    ends: list[int] = sorted(end for _, end in intervals)
+    """
+    best, average, worst case: O(n log n)
+    """
+    starts: list[int] = sorted(start for start, _ in intervals) # O(n log n)
+    ends: list[int] = sorted(end for _, end in intervals)       # O(n log n)
 
     rooms = end_idx = 0
 
-    for start in starts:
+    for start in starts: # O(n)
         if start < ends[end_idx]:
             rooms += 1
         else:
