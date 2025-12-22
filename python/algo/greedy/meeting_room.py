@@ -53,17 +53,23 @@ def meeting_rooms_ii_ptr(intervals: list[list[int]]):
 
 # Leetcode 759
 def employee_free_time(schedules: list[list[list[int]]]):
+    """
+    p = number of people, n = number of intervals / person.
+    Let N be the total number of intervals.
+
+    best, average, worst case: O(N log N)
+    """
     intervals = [
         interval
         for intervals in schedules
         for interval in intervals
     ]
-    intervals.sort()
+    intervals.sort() # O(N log N)
     prev_start = intervals[0][0]
     prev_end = intervals[0][1]
     merged = []
 
-    for start, end in intervals[1:]:
+    for start, end in intervals[1:]: # O(N)
         if start <= prev_end:
             prev_end = max(end, prev_end)
         else:
@@ -74,7 +80,7 @@ def employee_free_time(schedules: list[list[list[int]]]):
     prev_start = merged[0][0]
     prev_end = merged[0][1]
     ans = []
-    for i in range(1, len(merged)):
+    for i in range(1, len(merged)): # O(N)
         ans.append([merged[i-1][1], merged[i][0]])
 
     return ans
