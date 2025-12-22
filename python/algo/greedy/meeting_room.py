@@ -85,7 +85,37 @@ def employee_free_time(schedules: list[list[list[int]]]):
 
     return ans
 
+# Leetcode 759
+# You are given a schedule for multiple employees.
+# - schedule[i] is a list of non-overlapping, sorted intervals representing when the i-th employee is working.
+# - Each interval is of the form [start, end].
 
+# Return the list of finite time intervals when all employees are free.
+def employee_free_time_merge_sorted(schedules: list[list[list[int]]]):
+    """
+    p = number of people, n = number of intervals / person.
+    Let N be the total number of intervals.
+
+    best, average, worst case: O(N log p)
+    """
+    sources = []
+    for source_index, intervals in enumerate(schedules):
+        if intervals:
+            heapq.heappush(sources, (intervals[0], source_index, 0))
+
+    prev_end = None
+    res = []
+    while sources: # O(N)
+        (start, end), source_index, index = heapq.heappop(sources) # O(log p), the maximum size of `sources` is `p`
+        if prev_end is not None and start > prev_end:
+            res.append([prev_end, start])
+
+        prev_end = end if prev_end is None else max(prev_end, end)
+        new_index = index + 1
+        if len(schedules[source_index]) > new_index:
+            heapq.heappush(sources, (schedules[source_index][new_index], source_index, new_index))
+
+    return res
 
 
 def test_simple():
@@ -120,11 +150,22 @@ def test_simple():
                 [[4,10]]
             ],
             [[3, 4]]
-            ),
+        ),
+        (
+            [
+            [[1,3],[6,7]],
+            [[2,4]],
+            [[2,5],[9,12]]
+            ],
+            [[5,6], [7,9]]
+        )
     ]
     for schedule, expected in employee_free_time_tcs:
         output = employee_free_time(schedule)
         print(output)
         assert expected == output
+
+        output = employee_free_time_merge_sorted(schedule)
+        print(output)
 if __name__ == "__main__":
     test_simple()
